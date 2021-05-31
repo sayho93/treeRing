@@ -129,11 +129,12 @@ def count_and_map_rings(img, x1, y1, x2, y2):
     gray = cv2.cvtColor(line[30:35, :, :], cv2.COLOR_BGR2GRAY)
 
     threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 3)
-    kernel = np.ones((5, 5), np.float32) / 25
-    gaussian = cv2.filter2D(np.asarray(threshold), -1, kernel)
+    # kernel = np.ones((5, 5), np.float32) / 25
+    # gaussian = cv2.filter2D(np.asarray(threshold), -1, kernel)
+
     # # 연결되어 있던 것을 끊어내 주기 위해 opening
     kernel = np.ones((1, 1), np.uint8)
-    opening = cv2.morphologyEx(gaussian, cv2.MORPH_OPEN, kernel)
+    opening = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
     closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
     # res = cv2.Canny(closing, 120, 220)
 
@@ -223,25 +224,26 @@ if (x1, y1) != (x2, y2):
     # ################## TEST ####################
     gray = cv2.cvtColor(tImg, cv2.COLOR_BGR2GRAY)
     threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 3)
-    kernel = np.ones((5, 5), np.float32) / 25
-    gaussian = cv2.filter2D(np.asarray(threshold), -1, kernel)
+    # t_kernel = np.ones((5, 5), np.float32) / 25
+    # t_gaussian = cv2.filter2D(np.asarray(t_threshold), -1, t_kernel)
+
     # # 연결되어 있던 것을 끊어내 주기 위해 opening
     kernel = np.ones((1, 1), np.uint8)
-    opening = cv2.morphologyEx(gaussian, cv2.MORPH_OPEN, kernel)
+    opening = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
     closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
     # res = cv2.Canny(closing, 120, 220)
 
-    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=1)
+    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=3)
     # sobelX = cv2.convertScaleAbs(sobelX)
-    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=1)
+    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=3)
     # sobelY = cv2.convertScaleAbs(sobelY)
     # res = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
 
     res = cv2.Laplacian(closing, cv2.CV_8U)
 
     cv2.imshow('gray', gray)
+    # cv2.imshow('gaussian', gaussian)
     cv2.imshow('threshold', threshold)
-    cv2.imshow('gaussian', gaussian)
     cv2.imshow('opening', opening)
     cv2.imshow('closing', closing)
     cv2.imshow('res', res)
