@@ -12,6 +12,7 @@ Click Esc to move from one screen to another.
 
 import cv2
 import numpy as np
+from PIL.Image import Image
 from scipy import signal
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,11 +20,11 @@ from tkinter import Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
 x1, x2, y1, y2 = 0, 0, 0, 0
-timg = None
+tImg = None
 draw = False
 
 
-def onmouse(event, x, y, flags, paprm):
+def onMouse(event, x, y, flags, paprm):
     """
     An event call function:
         this function draws  a blue line between the point where the mouse was clicked and the mouse location,
@@ -35,9 +36,9 @@ def onmouse(event, x, y, flags, paprm):
         params: unused
     returns: None
     """
-    global x1, x2, y1, y2, timg, draw
+    global x1, x2, y1, y2, tImg, draw
     if draw:
-        timg = img.copy()
+        tImg = img.copy()
     if event == cv2.EVENT_LBUTTONDOWN:
         draw = True
         x1, x2, y1, y2 = 0, 0, 0, 0
@@ -45,13 +46,13 @@ def onmouse(event, x, y, flags, paprm):
         y1 = y
 
     elif event == cv2.EVENT_LBUTTONUP:
-        cv2.line(timg, (x1, y1), (x, y), (255, 0, 0), 2)
+        cv2.line(tImg, (x1, y1), (x, y), (255, 0, 0), 2)
         x2, y2 = x, y
         draw = False
 
     elif event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
-        if draw == True:
-            cv2.line(timg, (x1, y1), (x, y), (255, 0, 0), 2)
+        if draw:
+            cv2.line(tImg, (x1, y1), (x, y), (255, 0, 0), 2)
             x2, y2 = x, y
 
 
@@ -59,19 +60,19 @@ def rotate_image(img, p1, p2):
     """
     Calculate rotation angle to transfom a line between two point to be horizontal
     and rotate an image by this angle
-    Parameters: 
+    Parameters:
         img: a numpy array - the image to rotate
         p1, p2: (int,int) - start and end points of the rotation line
     """
 
-    def _rotate_point(p, rotation_matrix):
+    def _rotate_point(p, rotationMatrix):
         """
         A helper function that return point location after linear transformation
         Parameters:
             p:(int, int) - point to transform
-            rotation_matrix - transformation matrix
+            rotationMatrix - transformation matrix
         """
-        return rotation_matrix.dot(np.array(p + (1,))).astype(int)
+        return rotationMatrix.dot(np.array(p + (1,))).astype(int)
 
     x1, y1 = p1
     x2, y2 = p2
@@ -83,24 +84,24 @@ def rotate_image(img, p1, p2):
     # center = (int(abs(x1-x2)), int(abs(y1-y2)))
     rows, cols = img.shape[:2]
     center = (cols / 2, rows / 2)
-    rotation_matrix = cv2.getRotationMatrix2D(center, rotation_angle, 1)
+    rotationMat = cv2.getRotationMatrix2D(center, rotation_angle, 1)
 
     # rotation calculates the cos and sin, taking absolutes of those.
-    abs_cos = abs(rotation_matrix[0, 0])
-    abs_sin = abs(rotation_matrix[0, 1])
+    abs_cos = abs(rotationMat[0, 0])
+    abs_sin = abs(rotationMat[0, 1])
 
     # calculate the new width and height
     new_w = int(rows * abs_sin + cols * abs_cos)
     new_h = int(rows * abs_cos + cols * abs_sin)
 
     # subtract old image center (bringing image back to original) and add the new image center coordinates before rotation
-    rotation_matrix[0, 2] += new_w / 2 - center[0]
-    rotation_matrix[1, 2] += new_h / 2 - center[1]
+    rotationMat[0, 2] += new_w / 2 - center[0]
+    rotationMat[1, 2] += new_h / 2 - center[1]
 
-    rotated = cv2.warpAffine(img, rotation_matrix, (new_w, new_h))
+    rotated = cv2.warpAffine(img, rotationMat, (new_w, new_h))
 
-    rx1, ry1 = _rotate_point(p1, rotation_matrix)
-    rx2, ry2 = _rotate_point(p2, rotation_matrix)
+    rx1, ry1 = _rotate_point(p1, rotationMat)
+    rx2, ry2 = _rotate_point(p2, rotationMat)
 
     return rotated, rx1, ry1, rx2, ry2
 
@@ -126,16 +127,34 @@ def count_and_map_rings(img, x1, y1, x2, y2):
     # Define image strip around the ring count line
     line = img[ry1 - 30: ry1 + 30, min(rx1, rx2):max(rx1, rx2)]
     gray = cv2.cvtColor(line[30:35, :, :], cv2.COLOR_BGR2GRAY)
+
+    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 3)
+    kernel = np.ones((5, 5), np.float32) / 25
+    gaussian = cv2.filter2D(np.asarray(threshold), -1, kernel)
+    # # 연결되어 있던 것을 끊어내 주기 위해 opening
+    kernel = np.ones((1, 1), np.uint8)
+    opening = cv2.morphologyEx(gaussian, cv2.MORPH_OPEN, kernel)
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
+    # res = cv2.Canny(closing, 120, 220)
+
+    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=1)
+    # sobelX = cv2.convertScaleAbs(sobelX)
+    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=1)
+    # sobelY = cv2.convertScaleAbs(sobelY)
+    # res = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
+
+    res = cv2.Laplacian(closing, cv2.CV_8U)
+
     line = cv2.rectangle(line, (0, 30), (line.shape[1], 35), (0, 0, 0), 1)
     n = 2
     b = [1.0 / n] * n
     a = 1.0
-    m_gray = gray.mean(axis=0)
-    f_intensity = signal.filtfilt(b, a, m_gray)
+    m_res = res.mean(axis=0)
+    f_intensity = signal.filtfilt(b, a, m_res)
     rings = (np.diff(np.clip(np.diff(f_intensity), -10, 0)) < -1)
     count = int((np.diff(rings) > 0).sum() / 2)
 
-    return line, m_gray, rings, count
+    return line, m_res, rings, count
 
 
 def plot_map_rings(img, intensity, rings, count):
@@ -187,21 +206,53 @@ img = cv2.imread(img_file)
 
 # Set the window and mouse event for line draw with a mouse
 cv2.namedWindow("Tree rings", cv2.WINDOW_NORMAL)
-cv2.setMouseCallback("Tree rings", onmouse)
+cv2.setMouseCallback("Tree rings", onMouse)
 
-timg = img.copy()
+tImg = img.copy()
 # Wait for a line to be drawn and update the image with a new line every time the  mouse moves
 while True:
-    cv2.imshow("Tree rings", timg)
+    cv2.imshow("Tree rings", tImg)
     k = cv2.waitKey(30)
     if k & 0xFF == 27:
         cv2.destroyAllWindows()
         break
 
 if (x1, y1) != (x2, y2):
-    timg = img.copy()
+    tImg = img.copy()
+
+    # ################## TEST ####################
+    gray = cv2.cvtColor(tImg, cv2.COLOR_BGR2GRAY)
+    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 3)
+    kernel = np.ones((5, 5), np.float32) / 25
+    gaussian = cv2.filter2D(np.asarray(threshold), -1, kernel)
+    # # 연결되어 있던 것을 끊어내 주기 위해 opening
+    kernel = np.ones((1, 1), np.uint8)
+    opening = cv2.morphologyEx(gaussian, cv2.MORPH_OPEN, kernel)
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
+    # res = cv2.Canny(closing, 120, 220)
+
+    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=1)
+    # sobelX = cv2.convertScaleAbs(sobelX)
+    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=1)
+    # sobelY = cv2.convertScaleAbs(sobelY)
+    # res = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
+
+    res = cv2.Laplacian(closing, cv2.CV_8U)
+
+    cv2.imshow('gray', gray)
+    cv2.imshow('threshold', threshold)
+    cv2.imshow('gaussian', gaussian)
+    cv2.imshow('opening', opening)
+    cv2.imshow('closing', closing)
+    cv2.imshow('res', res)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
+    # exit()
+    # ################## TEST ####################
+
     # Rotate the image so the drawn line will be horizontal for easy calculations
-    rotated, rx1, ry1, rx2, ry2 = rotate_image(timg, (x1, y1), (x2, y2))
+    rotated, rx1, ry1, rx2, ry2 = rotate_image(tImg, (x1, y1), (x2, y2))
+
     img_strip, intensity, rings_map, rings_count = count_and_map_rings(rotated, rx1, ry1, rx2, ry2)
     plot_map_rings(img_strip, intensity, rings_map, rings_count)
     print('The age of the tree:' + repr(rings_count) + ' years')
