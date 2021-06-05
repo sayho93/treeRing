@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy import signal
-import pandas as pd
 import matplotlib.pyplot as plt
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
@@ -127,18 +126,6 @@ def plotRings(img, intensity, rings, count):
     axring.margins(0)
     plt.tight_layout()
     plt.show()
-
-
-def save_rings_map(rings):
-    Tk().withdraw()
-    save_file = asksaveasfilename(filetypes=[("Comma Separated Values", "*.csv")]) + ".csv"
-    if save_file != ".csv":
-        rings_map = (np.diff(rings) > 0)
-        df = pd.DataFrame({"pixels from center": list(range(rings_map.shape[0])), "rings": rings_map})
-        df = df[df["rings"] == True]
-        df = df[["pixels from center"]]
-        df["ring id"] = list(range(df.shape[0]))
-        df.to_csv(save_file, index=False)
 
 Tk().withdraw()
 img_file = askopenfilename(filetypes=(("jpeg files", "*.jpg"), ("all files", "*.*")))

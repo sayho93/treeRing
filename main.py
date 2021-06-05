@@ -1,10 +1,9 @@
 import cv2
 import numpy as np
 from scipy import signal
-import pandas as pd
 import matplotlib.pyplot as plt
 from tkinter import Tk
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from tkinter.filedialog import askopenfilename
 
 x1, x2, y1, y2 = 0, 0, 0, 0
 tImg = None
