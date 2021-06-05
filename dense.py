@@ -33,10 +33,9 @@ def onMouse(event, x, y, flags, paprm):
             x2, y2 = x, y
 
 
-def rotate_image(img, p1, p2):
+def rotateImage(img, p1, p2):
     def _rotatePoint(p, rotationMatrix):
         return rotationMatrix.dot(np.array(p + (1,))).astype(int)
-
     x1, y1 = p1
     x2, y2 = p2
     if x1 == x2:
@@ -69,7 +68,7 @@ def countRings(img):
     line = img[ry1 - 30: ry1 + 30, min(rx1, rx2):max(rx1, rx2)]
     gray = cv2.cvtColor(line[30:35, :, :], cv2.COLOR_BGR2GRAY)
 
-    # #############################ADDED
+    # #############################Image Processing
     threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 355, 2)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     opening = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
@@ -96,7 +95,7 @@ def countRings(img):
     # cv2.imshow('res', res)
     # cv2.waitKey()
     # cv2.destroyAllWindows()
-    # #############################ADDED
+    # #############################Image Processing
 
     line = cv2.rectangle(line, (0, 30), (line.shape[1], 35), (0, 0, 0), 1)
     n = 2
@@ -174,7 +173,7 @@ if (x1, y1) != (x2, y2):
     # exit()
     # ################## TEST ####################
 
-    rotated, rx1, ry1, rx2, ry2 = rotate_image(tImg, (x1, y1), (x2, y2))
+    rotated, rx1, ry1, rx2, ry2 = rotateImage(tImg, (x1, y1), (x2, y2))
 
     img_strip, intensity, rings_map, rings_count = countRings(rotated)
     plotRings(img_strip, intensity, rings_map, rings_count)
