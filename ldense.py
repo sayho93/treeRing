@@ -1,17 +1,17 @@
+# ##################### For Dense Tree Rings (hr1.jpg, hr2.jpg, rings2.jpg)
 import cv2
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-import time
 
 x1, x2, y1, y2 = 0, 0, 0, 0
 tImg = None
 draw = False
 
 
-def onMouse(event, x, y, flags, paprm):
+def onMouse(event, x, y, flags, params):
     global x1, x2, y1, y2, tImg, draw
     if draw:
         tImg = img.copy()
@@ -32,10 +32,9 @@ def onMouse(event, x, y, flags, paprm):
             x2, y2 = x, y
 
 
-def rotate_image(img, p1, p2):
+def rotateImage(img, p1, p2):
     def _rotatePoint(p, rotationMatrix):
         return rotationMatrix.dot(np.array(p + (1,))).astype(int)
-
     x1, y1 = p1
     x2, y2 = p2
     if x1 == x2:
@@ -64,38 +63,41 @@ def rotate_image(img, p1, p2):
     return rotated, rx1, ry1, rx2, ry2
 
 
-def countRings(img, x1, y1, x2, y2):
+def countRings(img):
     line = img[ry1 - 30: ry1 + 30, min(rx1, rx2):max(rx1, rx2)]
     gray = cv2.cvtColor(line[30:35, :, :], cv2.COLOR_BGR2GRAY)
 
-    # #############################ADDED
-    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 355, 2)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # #############################Image Processing
+    # thresholding
+    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 7)
+
+    # opening, closing
+    kernel = np.ones((1, 1), np.uint8)
     opening = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    res = cv2.morphologyEx(threshold, cv2.MORPH_CLOSE, kernel)
-    #
-    # gaussian = cv2.GaussianBlur(closing, (3, 3), 0)
-    #
-    # sobelX = cv2.Sobel(gaussian, cv2.CV_64F, 1, 0, ksize=1)
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
+
+    # gaussian
+    gaussian = cv2.GaussianBlur(closing, (5, 5), 0)
+    # canny edge detecting
+    res = cv2.Canny(gaussian, 120, 220)
+
+    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=1)
     # sobelX = cv2.convertScaleAbs(sobelX)
-    # sobelY = cv2.Sobel(gaussian, cv2.CV_64F, 0, 1, ksize=1)
+    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=1)
     # sobelY = cv2.convertScaleAbs(sobelY)
-    # sobel = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
-    # canny = cv2.Canny(gaussian, 120, 150)
-    # res = cv2.adaptiveThreshold(sobel, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    # ret, res = cv2.threshold(closing, 30, 50, cv2.THRESH_BINARY)
-    # cv2.imshow('threshold', threshold)
+    # res = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
+
+    # res = cv2.Laplacian(closing, cv2.CV_8U)
+
     # cv2.imshow('gray', gray)
+    # cv2.imshow('gaussian', gaussian)
+    # cv2.imshow('threshold', threshold)
     # cv2.imshow('opening', opening)
     # cv2.imshow('closing', closing)
-    # cv2.imshow('gaussian', gaussian)
-    # cv2.imshow('sobel', sobel)
-
-    # cv2.imshow('res', res)
+    # cv2.imshow('res', closing)
     # cv2.waitKey()
     # cv2.destroyAllWindows()
-    # #############################ADDED
+    # #############################Image Processing
 
     line = cv2.rectangle(line, (0, 30), (line.shape[1], 35), (0, 0, 0), 1)
     n = 2
@@ -104,7 +106,6 @@ def countRings(img, x1, y1, x2, y2):
     m_res = res.mean(axis=0)
     f_intensity = signal.filtfilt(b, a, m_res)
     rings = (np.diff(np.clip(np.diff(f_intensity), -10, 0)) < -1)
-    print(rings)
     count = int((np.diff(rings) > 0).sum() / 2)
 
     return line, m_res, rings, count
@@ -118,7 +119,6 @@ def plotRings(img, intensity, rings, count):
     axim.margins(0)
     axin.plot(intensity)
     axin.set_title("Average pixle intencity on the y axis inside the black box")
-    # axin.hlines(threshholds, xmax=-1, xmin=len(intensity), colors="r")
     axin.margins(0)
     x = np.arange(rings.shape[0])
     axring.fill_between(x, 0, rings)
@@ -126,6 +126,7 @@ def plotRings(img, intensity, rings, count):
     axring.margins(0)
     plt.tight_layout()
     plt.show()
+
 
 Tk().withdraw()
 img_file = askopenfilename(filetypes=(("jpeg files", "*.jpg"), ("all files", "*.*")))
@@ -141,42 +142,41 @@ while True:
     if k & 0xFF == 27:
         cv2.destroyAllWindows()
         break
-start = time.time()
+
 if (x1, y1) != (x2, y2):
     tImg = img.copy()
 
     # ################## TEST ####################
-    # gray = cv2.cvtColor(tImg, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(tImg, cv2.COLOR_BGR2GRAY)
+    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 7)
+    kernel = np.ones((1, 1), np.uint8)
+    opening = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
 
-    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    # opening = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
-    # closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-    # gaussian = cv2.GaussianBlur(closing, (3, 3), 0)
-    #
-    # sobelX = cv2.Sobel(gaussian, cv2.CV_64F, 1, 0, ksize=1)
+    gaussian = cv2.GaussianBlur(closing, (5, 5), 0)
+    res = cv2.Canny(gaussian, 120, 220)
+
+    # sobelX = cv2.Sobel(closing, cv2.CV_64F, 1, 0, ksize=1)
     # sobelX = cv2.convertScaleAbs(sobelX)
-    # sobelY = cv2.Sobel(gaussian, cv2.CV_64F, 0, 1, ksize=1)
+    # sobelY = cv2.Sobel(closing, cv2.CV_64F, 0, 1, ksize=1)
     # sobelY = cv2.convertScaleAbs(sobelY)
-    # sobel = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
-    # res = cv2.adaptiveThreshold(sobel, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 35, 1)
-    #
+    # res = cv2.addWeighted(sobelX, 1, sobelY, 1, 0)
+
+    # res = cv2.Laplacian(closing, cv2.CV_8U)
+
     # cv2.imshow('gray', gray)
+    # # cv2.imshow('gaussian', gaussian)
+    # cv2.imshow('threshold', threshold)
     # cv2.imshow('opening', opening)
     # cv2.imshow('closing', closing)
-    # cv2.imshow('gaussian', gaussian)
-    # cv2.imshow('sobel', sobel)
-    # cv2.imshow('threshold', res)
-
-    # cv2.imshow('res', res)
+    # cv2.imshow('res', closing)
     # cv2.waitKey()
     # cv2.destroyAllWindows()
     # exit()
     # ################## TEST ####################
 
-    rotated, rx1, ry1, rx2, ry2 = rotate_image(tImg, (x1, y1), (x2, y2))
+    rotated, rx1, ry1, rx2, ry2 = rotateImage(tImg, (x1, y1), (x2, y2))
 
-    img_strip, intensity, rings_map, rings_count = countRings(rotated, rx1, ry1, rx2, ry2)
+    img_strip, intensity, rings_map, rings_count = countRings(rotated)
     plotRings(img_strip, intensity, rings_map, rings_count)
     print('The age of the tree:' + repr(rings_count) + ' years')
-    end = time.time()
-    print(end - start)
