@@ -3,7 +3,7 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from tkinter import Tk
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from tkinter.filedialog import askopenfilename
 import time
 
 x1, x2, y1, y2 = 0, 0, 0, 0
